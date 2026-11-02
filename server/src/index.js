@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
-import { SECTIONS, PAYMENT_STATS } from './schema.js';
+import { SECTIONS } from './schema.js';
 import { isMonday } from './dates.js';
 import { buildReport, normalizeEntry } from './report.js';
 import { readAll, update } from './store.js';
@@ -19,7 +19,7 @@ const checkWeek = (req, res, next) => {
   next();
 };
 
-app.get('/api/schema', (_req, res) => res.json({ sections: SECTIONS, payments: PAYMENT_STATS }));
+app.get('/api/schema', (_req, res) => res.json({ sections: SECTIONS }));
 
 app.get('/api/weeks', async (_req, res) => {
   const all = await readAll();

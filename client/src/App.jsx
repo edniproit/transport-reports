@@ -3,11 +3,12 @@ import { api } from './api.js';
 import { formatDate, lastWeekStart, mondayOf, shiftWeek, weekEnd } from './dates.js';
 import EntryForm from './EntryForm.jsx';
 import Report from './Report.jsx';
+import { Logo } from './Logo.jsx';
 
 export default function App() {
   const [schema, setSchema] = useState(null);
   const [weekStart, setWeekStart] = useState(lastWeekStart());
-  const [tab, setTab] = useState('entry');
+  const [tab, setTab] = useState(window.location.hash === '#report' ? 'report' : 'entry');
   const [savedWeeks, setSavedWeeks] = useState([]);
   const [error, setError] = useState('');
 
@@ -21,47 +22,70 @@ export default function App() {
   const end = weekEnd(weekStart);
 
   return (
-    <div className="app">
-      <header className="no-print">
-        <h1>Звіт з оплати проїзду</h1>
-        <div className="week-picker">
-          <button onClick={() => setWeekStart(shiftWeek(weekStart, -1))}>←</button>
-          <label>
-            Тиждень з
-            <input
-              type="date"
-              value={weekStart}
-              onChange={(e) => e.target.value && setWeekStart(mondayOf(e.target.value))}
-            />
-          </label>
-          <button onClick={() => setWeekStart(shiftWeek(weekStart, 1))}>→</button>
-          <span className="range">
-            {formatDate(weekStart)} – {formatDate(end)}
-          </span>
+    <div className="page">
+      <div className="topbar no-print">
+        <span className="eyebrow">Щотижнева статистика · оплата транспорту</span>
+        <Logo />
+      </div>
+
+      <section className="hero no-print">
+        <h1>
+          Звіт з оплати <span>проїзду</span>
+        </h1>
+        <p>Внесіть результати минулого тижня — зведений звіт за тиждень, місяць і рік сформується сам.</p>
+        <div className="pills">
+          <span className="pill">Електротранспорт</span>
+          <span className="pill">Автобуси</span>
+          <span className="pill">Штрафи</span>
         </div>
-        <nav>
-          <button className={tab === 'entry' ? 'active' : ''} onClick={() => setTab('entry')}>
-            Введення даних
+      </section>
+
+      <section className="card week-card no-print">
+        <div className="stepper">
+          <button className="icon-btn" aria-label="Попередній тиждень" onClick={() => setWeekStart(shiftWeek(weekStart, -1))}>
+            ←
           </button>
-          <button className={tab === 'report' ? 'active' : ''} onClick={() => setTab('report')}>
-            Зведений звіт
+          <div className="week-range">
+            <small>Звітний тиждень</small>
+            <strong>
+              {formatDate(weekStart)} – {formatDate(end)}
+            </strong>
+          </div>
+          <button className="icon-btn" aria-label="Наступний тиждень" onClick={() => setWeekStart(shiftWeek(weekStart, 1))}>
+            →
           </button>
-        </nav>
+          <input
+            className="date-input"
+            type="date"
+            aria-label="Будь-яка дата тижня"
+            value={weekStart}
+            onChange={(e) => e.target.value && setWeekStart(mondayOf(e.target.value))}
+          />
+        </div>
         {savedWeeks.length > 0 && (
-          <p className="saved">
-            Збережені тижні:{' '}
+          <div className="saved">
+            <span className="muted">Збережені:</span>
             {savedWeeks.slice(0, 8).map((w) => (
-              <button key={w} className="chip" onClick={() => setWeekStart(w)}>
+              <button key={w} className={`chip ${w === weekStart ? 'active' : ''}`} onClick={() => setWeekStart(w)}>
                 {formatDate(w)}
               </button>
             ))}
-          </p>
+          </div>
         )}
-      </header>
+      </section>
+
+      <nav className="tabs no-print">
+        <button className={tab === 'entry' ? 'active' : ''} onClick={() => setTab('entry')}>
+          1 · Введення даних
+        </button>
+        <button className={tab === 'report' ? 'active' : ''} onClick={() => setTab('report')}>
+          2 · Зведений звіт
+        </button>
+      </nav>
 
       {error && <p className="error">{error}</p>}
       {!schema ? (
-        <p>Завантаження…</p>
+        <p className="muted">Завантаження…</p>
       ) : tab === 'entry' ? (
         <EntryForm key={weekStart} schema={schema} weekStart={weekStart} onSaved={refreshWeeks} onDone={() => setTab('report')} />
       ) : (

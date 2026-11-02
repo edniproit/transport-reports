@@ -2,9 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildReport } from './report.js';
 
-const entry = (busCount, tramSum) => ({
-  lines: { bus_25: { count: busCount }, tram_single: { count: 10, sum: tramSum } },
-  payments: { pay_success: 5, pay_total: 6 },
+const entry = (busCount, tramSum, tramFines = 0) => ({
+  lines: {
+    bus_25: { count: busCount },
+    tram_single: { count: 10, sum: tramSum },
+    tram_fine: { count: tramFines, sum: tramFines * 200 },
+  },
 });
 
 test('сума для фіксованої ціни рахується автоматично', () => {
@@ -30,4 +33,13 @@ test('попередній рік не потрапляє в річну суму
   const all = { '2025-12-22': entry(7, 70), '2026-01-05': entry(1, 10) };
   const r = buildReport('2026-01-05', all);
   assert.equal(r.year.lines.bus_25.count, 1);
+});
+
+test('штрафи: окремо в кількостях, у сумах входять до розділу, у платежах враховані', () => {
+  const r = buildReport('2026-10-19', { '2026-10-19': entry(2, 100, 3) });
+  const tram = r.week.totals.sections.tram;
+  assert.equal(tram.count, 10);
+  assert.equal(tram.fines, 3);
+  assert.equal(tram.sum, 100 + 600);
+  assert.equal(r.week.totals.payments, 10 + 2 + 3);
 });

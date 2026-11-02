@@ -12,14 +12,12 @@ export default function EntryForm({ schema, weekStart, onSaved, onDone }) {
     api.getWeek(weekStart).then(setEntry).catch((e) => setStatus(e.message));
   }, [weekStart]);
 
-  if (!entry) return <p>{status || 'Завантаження…'}</p>;
+  if (!entry) return <p className="muted">{status || 'Завантаження…'}</p>;
 
   const setLine = (id, field, value) => {
     const n = Math.max(0, Number(value) || 0);
     setEntry((e) => ({ ...e, lines: { ...e.lines, [id]: { ...e.lines[id], [field]: n } } }));
   };
-  const setPayment = (id, value) =>
-    setEntry((e) => ({ ...e, payments: { ...e.payments, [id]: Math.max(0, Number(value) || 0) } }));
 
   const save = async () => {
     try {
@@ -42,62 +40,40 @@ export default function EntryForm({ schema, weekStart, onSaved, onDone }) {
   };
 
   return (
-    <div>
-      {schema.sections.map((section) => (
-        <section key={section.id}>
-          <h2>{section.title}</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Показник</th>
-                <th>Кількість</th>
-                <th>Сума, грн</th>
-              </tr>
-            </thead>
-            <tbody>
-              {section.lines.map((line) => {
-                const v = entry.lines[line.id];
-                return (
-                  <tr key={line.id}>
-                    <td>{line.title}</td>
-                    <td>
-                      <input type="number" min="0" inputMode="numeric" value={toValue(v.count)} onChange={(e) => setLine(line.id, 'count', e.target.value)} />
-                    </td>
-                    <td>
-                      {line.price ? (
-                        <span className="auto">{formatNumber(v.count * line.price)}</span>
-                      ) : (
-                        <input type="number" min="0" inputMode="decimal" value={toValue(v.sum)} onChange={(e) => setLine(line.id, 'sum', e.target.value)} />
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </section>
-      ))}
-
-      <section>
-        <h2>Статистика платежів</h2>
-        <table>
-          <tbody>
-            {schema.payments.map((p) => (
-              <tr key={p.id}>
-                <td>{p.title}</td>
-                <td>
-                  <input type="number" min="0" inputMode="numeric" value={toValue(entry.payments[p.id])} onChange={(e) => setPayment(p.id, e.target.value)} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+    <div className="no-print">
+      <div className="sections">
+        {schema.sections.map((section) => (
+          <section key={section.id} className="card">
+            <h2>{section.title}</h2>
+            <div className="rows head">
+              <span>Показник</span>
+              <span>Кількість</span>
+              <span>Сума, грн</span>
+            </div>
+            {section.lines.map((line) => {
+              const v = entry.lines[line.id];
+              return (
+                <div key={line.id} className="rows">
+                  <label htmlFor={`${line.id}-count`}>{line.title}</label>
+                  <input id={`${line.id}-count`} type="number" min="0" inputMode="numeric" placeholder="0" value={toValue(v.count)} onChange={(e) => setLine(line.id, 'count', e.target.value)} />
+                  {line.price ? (
+                    <span className="auto" title="Рахується автоматично">
+                      {formatNumber(v.count * line.price)}
+                    </span>
+                  ) : (
+                    <input type="number" min="0" inputMode="decimal" placeholder="0" aria-label={`${line.title}: сума`} value={toValue(v.sum)} onChange={(e) => setLine(line.id, 'sum', e.target.value)} />
+                  )}
+                </div>
+              );
+            })}
+          </section>
+        ))}
+      </div>
 
       <div className="actions">
-        <button className="primary" onClick={save}>Зберегти і показати звіт</button>
-        <button onClick={clear}>Очистити тиждень</button>
-        <span className="status">{status}</span>
+        <button className="btn primary" onClick={save}>Зберегти і показати звіт</button>
+        <button className="btn" onClick={clear}>Очистити тиждень</button>
+        <span className="muted">{status}</span>
       </div>
     </div>
   );

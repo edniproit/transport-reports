@@ -1,4 +1,4 @@
-import { ALL_LINES, SECTIONS, PAYMENT_STATS } from './schema.js';
+import { ALL_LINES, SECTIONS } from './schema.js';
 import { weekEnd } from './dates.js';
 
 const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0);
@@ -11,13 +11,11 @@ export function normalizeEntry(raw = {}) {
     const sum = line.price ? count * line.price : num(raw.lines?.[line.id]?.sum);
     lines[line.id] = { count, sum };
   }
-  const payments = {};
-  for (const p of PAYMENT_STATS) payments[p.id] = num(raw.payments?.[p.id]);
-  return { lines, payments };
+  return { lines };
 }
 
 function emptyPeriod() {
-  return { lines: Object.fromEntries(ALL_LINES.map((l) => [l.id, { count: 0, sum: 0 }])), payments: Object.fromEntries(PAYMENT_STATS.map((p) => [p.id, 0])) };
+  return { lines: Object.fromEntries(ALL_LINES.map((l) => [l.id, { count: 0, sum: 0 }])) };
 }
 
 function add(acc, entry) {
@@ -25,23 +23,27 @@ function add(acc, entry) {
     acc.lines[l.id].count += entry.lines[l.id].count;
     acc.lines[l.id].sum += entry.lines[l.id].sum;
   }
-  for (const p of PAYMENT_STATS) acc.payments[p.id] += entry.payments[p.id];
 }
 
+// Як у зразку звіту: «Загальна кількість» розділу — без штрафів (вони в окремій таблиці),
+// «Загальна сума» — разом зі штрафами. Кількість платежів = усі кількості, включно зі штрафами.
 function withTotals(period) {
   const sections = {};
-  let count = 0;
-  let sum = 0;
+  const all = { count: 0, fines: 0, sum: 0 };
   for (const s of SECTIONS) {
-    const t = s.lines.reduce(
-      (a, l) => ({ count: a.count + period.lines[l.id].count, sum: a.sum + period.lines[l.id].sum }),
-      { count: 0, sum: 0 },
-    );
+    const t = { count: 0, fines: 0, sum: 0 };
+    for (const l of s.lines) {
+      const v = period.lines[l.id];
+      if (l.fine) t.fines += v.count;
+      else t.count += v.count;
+      t.sum += v.sum;
+    }
     sections[s.id] = t;
-    count += t.count;
-    sum += t.sum;
+    all.count += t.count;
+    all.fines += t.fines;
+    all.sum += t.sum;
   }
-  return { ...period, totals: { sections, all: { count, sum } } };
+  return { ...period, totals: { sections, all, payments: all.count + all.fines } };
 }
 
 // entries: { [weekStart]: entry }. Місяць і рік рахуються за тижнями, що закінчуються
@@ -66,6 +68,8 @@ export function buildReport(weekStart, entries) {
   return {
     weekStart,
     weekEnd: end,
+    monthStart: `${month}-01`,
+    yearStart: `${year}-01-01`,
     week: withTotals(week),
     month: withTotals(monthP),
     year: withTotals(yearP),
