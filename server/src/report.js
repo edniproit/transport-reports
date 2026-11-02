@@ -5,7 +5,7 @@ const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0)
 const optional = (v) => (v === null || v === undefined || v === '' ? null : num(v));
 
 // Нормалізує введені дані тижня.
-// prices — ціни цього звіту (за відсутності беруться fallbackPrices); сума рядка = кількість * ціна, у штрафів — вручну.
+// prices — ціни цього звіту, включно зі штрафами (за відсутності беруться fallbackPrices); сума рядка = кількість * ціна.
 // month — місяць, внесений вручну (null = не внесено): це накопичене з початку місяця значення, воно замінює розрахунок.
 // yearBefore — накопичене з початку року до цього тижня.
 export function normalizeEntry(raw = {}, fallbackPrices = defaultPrices()) {
@@ -15,10 +15,10 @@ export function normalizeEntry(raw = {}, fallbackPrices = defaultPrices()) {
   const yearBefore = {};
   for (const line of ALL_LINES) {
     const id = line.id;
-    if (!line.fine) prices[id] = num(raw.prices?.[id] ?? fallbackPrices[id] ?? line.price);
+    prices[id] = num(raw.prices?.[id] ?? fallbackPrices[id] ?? line.price);
 
     const count = num(raw.lines?.[id]?.count);
-    lines[id] = { count, sum: line.fine ? num(raw.lines?.[id]?.sum) : count * prices[id] };
+    lines[id] = { count, sum: count * prices[id] };
 
     const manual = raw.month?.[id] ?? raw.monthPart?.[id]; // monthPart — стара назва поля
     month[id] = { count: optional(manual?.count), sum: optional(manual?.sum) };
@@ -33,7 +33,7 @@ function manualMonth(entry, line) {
   const { count, sum } = entry.month[line.id];
   if (count === null && sum === null) return null;
   const counted = count ?? 0;
-  return { count: counted, sum: sum ?? (line.fine ? 0 : counted * entry.prices[line.id]) };
+  return { count: counted, sum: sum ?? counted * entry.prices[line.id] };
 }
 
 function emptyPeriod() {

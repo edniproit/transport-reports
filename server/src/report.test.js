@@ -74,9 +74,24 @@ test('рік: тижні календарного року плюс накопи
   assert.equal(r.week.lines.bus_25.count, 1);
 });
 
+test('штраф: ціна за замовчуванням 200 грн (електро) і 360 грн (автобуси), редагується в звіті', () => {
+  const e = normalizeEntry({ lines: { tram_fine: { count: 2 }, bus_fine: { count: 3 } } });
+  assert.equal(e.prices.tram_fine, 200);
+  assert.equal(e.prices.bus_fine, 360);
+  assert.equal(e.lines.tram_fine.sum, 400);
+  assert.equal(e.lines.bus_fine.sum, 1080);
+
+  const edited = normalizeEntry({ prices: { tram_fine: 250 }, lines: { tram_fine: { count: 2 } } });
+  assert.equal(edited.lines.tram_fine.sum, 500);
+});
+
+test('новий звіт успадковує й ціни штрафів', () => {
+  assert.equal(normalizeEntry({}, { tram_fine: 300, bus_fine: 400 }).prices.bus_fine, 400);
+});
+
 test('штрафи: окремо в кількостях, у сумах входять до розділу, у платежах враховані', () => {
   const e = entry(2, 10);
-  e.lines.tram_fine = { count: 3, sum: 600 };
+  e.lines.tram_fine = { count: 3 };
   const r = buildReport('2026-10-19', { '2026-10-19': e });
   const tram = r.week.totals.sections.tram;
   assert.equal(tram.count, 10);

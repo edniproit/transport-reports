@@ -71,28 +71,20 @@ export default function EntryForm({ schema, weekStart, isFirst, onDone, onDelete
               return (
                 <div key={line.id} className="rows">
                   <label htmlFor={`${line.id}-count`}>{line.title}</label>
-                  {line.fine ? (
-                    <span className="muted dash">—</span>
-                  ) : (
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      inputMode="decimal"
-                      aria-label={`${line.title}: ціна`}
-                      title="Ціна за замовчуванням з поточних тарифів; можна змінити"
-                      value={cellValue(entry.prices[line.id])}
-                      onChange={(e) => setPrice(line.id, e.target.value)}
-                    />
-                  )}
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    inputMode="decimal"
+                    aria-label={`${line.title}: ціна`}
+                    title="Ціна за замовчуванням з поточних тарифів; можна змінити"
+                    value={cellValue(entry.prices[line.id])}
+                    onChange={(e) => setPrice(line.id, e.target.value)}
+                  />
                   <input id={`${line.id}-count`} type="number" min="0" inputMode="numeric" placeholder="0" value={toValue(v.count)} onChange={(e) => setLine(line.id, 'count', e.target.value)} />
-                  {line.fine ? (
-                    <input type="number" min="0" inputMode="decimal" placeholder="0" aria-label={`${line.title}: сума`} value={toValue(v.sum)} onChange={(e) => setLine(line.id, 'sum', e.target.value)} />
-                  ) : (
-                    <span className="auto" title="Кількість × ціна">
-                      {formatNumber(v.count * entry.prices[line.id])}
-                    </span>
-                  )}
+                  <span className="auto" title="Кількість × ціна">
+                    {formatNumber(v.count * entry.prices[line.id])}
+                  </span>
                 </div>
               );
             })}
@@ -119,7 +111,7 @@ export default function EntryForm({ schema, weekStart, isFirst, onDone, onDelete
         </div>
         {lines.map((line) => {
           const m = entry.month[line.id];
-          const autoSum = !line.fine && m.count !== null ? String(m.count * entry.prices[line.id]) : 'авто';
+          const autoSum = m.count !== null ? String(m.count * entry.prices[line.id]) : 'авто';
           return (
             <div key={line.id} className="rows month-rows">
               <span>{line.title}</span>
