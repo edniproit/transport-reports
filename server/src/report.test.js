@@ -35,6 +35,16 @@ test('попередній рік не потрапляє в річну суму
   assert.equal(r.year.lines.bus_25.count, 1);
 });
 
+test('коригування змінюють лише місяць і рік, у тому числі в мінус', () => {
+  const e = entry(10, 100);
+  e.adjust = { month: { bus_25: { count: -4, sum: -100 } }, year: { bus_25: { count: 1000, sum: 25000 } } };
+  const r = buildReport('2026-10-19', { '2026-10-19': e });
+  assert.equal(r.week.lines.bus_25.count, 10);
+  assert.equal(r.month.lines.bus_25.count, 6);
+  assert.equal(r.month.lines.bus_25.sum, 250 - 100);
+  assert.equal(r.year.lines.bus_25.count, 1010);
+});
+
 test('штрафи: окремо в кількостях, у сумах входять до розділу, у платежах враховані', () => {
   const r = buildReport('2026-10-19', { '2026-10-19': entry(2, 100, 3) });
   const tram = r.week.totals.sections.tram;

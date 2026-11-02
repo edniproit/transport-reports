@@ -79,6 +79,10 @@ body {
 .rows label { font-size: 15px; }
 .rows input { width: 100%; padding: 10px 14px; text-align: right; font: inherit; border: 1.5px solid var(--line); border-radius: 12px; background: #f9fbff; color: var(--navy); }
 .rows input:focus { outline: none; border-color: var(--blue-bright); background: #fff; box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.15); }
+.adjust { margin-top: 18px; }
+.adjust summary { cursor: pointer; font-weight: 700; color: var(--navy); text-transform: uppercase; }
+.rows.adjust-rows { grid-template-columns: 1fr repeat(4, 110px); }
+.rows.adjust-rows span:not(:first-child) { text-align: right; }
 .auto { text-align: right; padding: 10px 14px; border-radius: 12px; background: #eef2fc; color: var(--blue); font-weight: 700; }
 
 /* Перегляд PDF */

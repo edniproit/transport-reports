@@ -19,6 +19,12 @@ export default function EntryForm({ schema, weekStart, onSaved, onDone }) {
     setEntry((e) => ({ ...e, lines: { ...e.lines, [id]: { ...e.lines[id], [field]: n } } }));
   };
 
+  const setAdjust = (period, id, field, value) =>
+    setEntry((e) => ({
+      ...e,
+      adjust: { ...e.adjust, [period]: { ...e.adjust[period], [id]: { ...e.adjust[period][id], [field]: Number(value) || 0 } } },
+    }));
+
   const save = async () => {
     try {
       setStatus('Збереження…');
@@ -69,6 +75,37 @@ export default function EntryForm({ schema, weekStart, onSaved, onDone }) {
           </section>
         ))}
       </div>
+
+      <details className="card adjust">
+        <summary>Коригування місяця і року</summary>
+        <p className="muted">
+          Місяць і рік додаються з тижнів автоматично. Тут вносять те, чого в тижнях немає: накопичене з початку року до першого тижня або частину
+          тижня, що припадає на попередній місяць (тоді значення від'ємне).
+        </p>
+        <div className="rows adjust-rows head">
+          <span>Показник</span>
+          <span>Місяць, к-сть</span>
+          <span>Місяць, грн</span>
+          <span>Рік, к-сть</span>
+          <span>Рік, грн</span>
+        </div>
+        {schema.sections.flatMap((s) => s.lines).map((line) => (
+          <div key={line.id} className="rows adjust-rows">
+            <span>{line.title}</span>
+            {[['month', 'count'], ['month', 'sum'], ['year', 'count'], ['year', 'sum']].map(([period, field]) => (
+              <input
+                key={period + field}
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                aria-label={`${line.title}: ${period === 'month' ? 'місяць' : 'рік'}, ${field === 'count' ? 'кількість' : 'сума'}`}
+                value={toValue(entry.adjust[period][line.id][field])}
+                onChange={(e) => setAdjust(period, line.id, field, e.target.value)}
+              />
+            ))}
+          </div>
+        ))}
+      </details>
 
       <div className="actions">
         <button className="btn primary" onClick={save}>Зберегти і показати звіт</button>

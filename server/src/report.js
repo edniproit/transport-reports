@@ -2,8 +2,11 @@ import { ALL_LINES, SECTIONS } from './schema.js';
 import { weekEnd } from './dates.js';
 
 const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0);
+const signed = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
 // Нормалізує введені дані тижня: рахує суму для рядків з фіксованою ціною.
+// adjust — коригування накопичених місяця й року (можуть бути від'ємними): початковий залишок
+// року, частина тижня, що припадає на попередній місяць, тощо.
 export function normalizeEntry(raw = {}) {
   const lines = {};
   for (const line of ALL_LINES) {
@@ -11,17 +14,24 @@ export function normalizeEntry(raw = {}) {
     const sum = line.price ? count * line.price : num(raw.lines?.[line.id]?.sum);
     lines[line.id] = { count, sum };
   }
-  return { lines };
+  const adjust = {};
+  for (const period of ['month', 'year']) {
+    adjust[period] = Object.fromEntries(
+      ALL_LINES.map((l) => [l.id, { count: signed(raw.adjust?.[period]?.[l.id]?.count), sum: signed(raw.adjust?.[period]?.[l.id]?.sum) }]),
+    );
+  }
+  return { lines, adjust };
 }
 
 function emptyPeriod() {
   return { lines: Object.fromEntries(ALL_LINES.map((l) => [l.id, { count: 0, sum: 0 }])) };
 }
 
-function add(acc, entry) {
+function add(acc, entry, adjustPeriod) {
   for (const l of ALL_LINES) {
-    acc.lines[l.id].count += entry.lines[l.id].count;
-    acc.lines[l.id].sum += entry.lines[l.id].sum;
+    const adj = adjustPeriod ? entry.adjust[adjustPeriod][l.id] : { count: 0, sum: 0 };
+    acc.lines[l.id].count += entry.lines[l.id].count + adj.count;
+    acc.lines[l.id].sum += entry.lines[l.id].sum + adj.sum;
   }
 }
 
@@ -61,8 +71,8 @@ export function buildReport(weekStart, entries) {
     if (we > end) continue;
     const entry = normalizeEntry(raw);
     if (ws === weekStart) add(week, entry);
-    if (we.slice(0, 7) === month) add(monthP, entry);
-    if (we.slice(0, 4) === year) add(yearP, entry);
+    if (we.slice(0, 7) === month) add(monthP, entry, 'month');
+    if (we.slice(0, 4) === year) add(yearP, entry, 'year');
   }
 
   return {
