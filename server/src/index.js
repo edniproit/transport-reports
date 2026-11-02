@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
-import { SECTIONS } from './schema.js';
+import { SECTIONS, defaultPrices } from './schema.js';
 import { COOKIE_NAME, createSessionToken, credentials, isAuthenticated, login, logout, requireAuth } from './auth.js';
 import { formatDate, isMonday, weekEnd } from './dates.js';
 import { renderPdf } from './pdf.js';
@@ -49,19 +49,27 @@ app.get('/api/weeks', async (_req, res) => {
   res.json(Object.keys(all).sort().reverse());
 });
 
+// Ціни нового звіту: ті, що в останньому створеному звіті (інакше — тарифи за замовчуванням зі schema.js).
+const inheritedPrices = (all) => {
+  const latest = Object.keys(all).sort().pop();
+  return latest ? normalizeEntry(all[latest]).prices : defaultPrices();
+};
+
 app.get('/api/weeks/:weekStart', checkWeek, async (req, res) => {
   const all = await readAll();
-  res.json(normalizeEntry(all[req.params.weekStart]));
+  const entry = all[req.params.weekStart];
+  res.json(entry ? normalizeEntry(entry) : normalizeEntry(undefined, inheritedPrices(all)));
 });
 
 // Перший (найраніший) збережений тиждень — точка відліку: раніше за нього звітів немає і не буде.
 app.put('/api/weeks/:weekStart', checkWeek, handle(async (req, res) => {
   const { weekStart } = req.params;
   if (weekStart > new Date().toISOString().slice(0, 10)) throw new HttpError('Цей тиждень ще не розпочався');
-  const entry = normalizeEntry(req.body);
+  let entry;
   await update((all) => {
     const first = Object.keys(all).sort()[0];
     if (first && weekStart < first) throw new HttpError(`Не можна створювати звіти раніше за перший тиждень (${formatDate(first)})`);
+    entry = normalizeEntry(req.body, all[weekStart] ? undefined : inheritedPrices(all));
     all[weekStart] = entry;
   });
   res.json(entry);

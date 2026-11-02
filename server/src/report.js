@@ -1,48 +1,43 @@
-import { ALL_LINES, SECTIONS } from './schema.js';
+import { ALL_LINES, SECTIONS, defaultPrices } from './schema.js';
 import { weekEnd } from './dates.js';
 
 const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0);
 const optional = (v) => (v === null || v === undefined || v === '' ? null : num(v));
 
-// Нормалізує введені дані тижня: рахує суму для рядків з фіксованою ціною.
-// monthPart — частина тижня, що потрапляє в місяць звіту, якщо тиждень перетинає межу місяців
-// (null = увесь тиждень). yearBefore — накопичене з початку року до цього тижня.
-export function normalizeEntry(raw = {}) {
+// Нормалізує введені дані тижня.
+// prices — ціни цього звіту (за відсутності беруться fallbackPrices); сума рядка = кількість * ціна, у штрафів — вручну.
+// month — місяць, внесений вручну (null = не внесено): це накопичене з початку місяця значення, воно замінює розрахунок.
+// yearBefore — накопичене з початку року до цього тижня.
+export function normalizeEntry(raw = {}, fallbackPrices = defaultPrices()) {
+  const prices = {};
   const lines = {};
-  const monthPart = {};
+  const month = {};
   const yearBefore = {};
   for (const line of ALL_LINES) {
-    const count = num(raw.lines?.[line.id]?.count);
-    lines[line.id] = { count, sum: line.price ? count * line.price : num(raw.lines?.[line.id]?.sum) };
+    const id = line.id;
+    if (!line.fine) prices[id] = num(raw.prices?.[id] ?? fallbackPrices[id] ?? line.price);
 
-    const partCount = optional(raw.monthPart?.[line.id]?.count);
-    const partSum = line.price ? (partCount === null ? null : partCount * line.price) : optional(raw.monthPart?.[line.id]?.sum);
-    monthPart[line.id] = { count: partCount, sum: partSum };
+    const count = num(raw.lines?.[id]?.count);
+    lines[id] = { count, sum: line.fine ? num(raw.lines?.[id]?.sum) : count * prices[id] };
 
-    yearBefore[line.id] = { count: num(raw.yearBefore?.[line.id]?.count), sum: num(raw.yearBefore?.[line.id]?.sum) };
+    const manual = raw.month?.[id] ?? raw.monthPart?.[id]; // monthPart — стара назва поля
+    month[id] = { count: optional(manual?.count), sum: optional(manual?.sum) };
+
+    yearBefore[id] = { count: num(raw.yearBefore?.[id]?.count), sum: num(raw.yearBefore?.[id]?.sum) };
   }
-  return { lines, monthPart, yearBefore };
+  return { prices, lines, month, yearBefore };
+}
+
+// Значення місяця, внесене вручну, або null, якщо рядок рахується автоматично.
+function manualMonth(entry, line) {
+  const { count, sum } = entry.month[line.id];
+  if (count === null && sum === null) return null;
+  const counted = count ?? 0;
+  return { count: counted, sum: sum ?? (line.fine ? 0 : counted * entry.prices[line.id]) };
 }
 
 function emptyPeriod() {
   return { lines: Object.fromEntries(ALL_LINES.map((l) => [l.id, { count: 0, sum: 0 }])) };
-}
-
-// period: 'month' бере monthPart замість повного тижня, 'year' додає yearBefore.
-function add(acc, entry, period) {
-  for (const l of ALL_LINES) {
-    const own = entry.lines[l.id];
-    let { count, sum } = own;
-    if (period === 'month') {
-      count = entry.monthPart[l.id].count ?? own.count;
-      sum = entry.monthPart[l.id].sum ?? own.sum;
-    } else if (period === 'year') {
-      count += entry.yearBefore[l.id].count;
-      sum += entry.yearBefore[l.id].sum;
-    }
-    acc.lines[l.id].count += count;
-    acc.lines[l.id].sum += sum;
-  }
 }
 
 // Як у зразку звіту: «Загальна кількість» розділу — без штрафів (вони в окремій таблиці),
@@ -66,29 +61,53 @@ function withTotals(period) {
   return { ...period, totals: { sections, all, payments: all.count + all.fines } };
 }
 
-// entries: { [weekStart]: entry }. Місяць і рік рахуються за тижнями, що закінчуються
-// в тому ж місяці/році, що й обраний тиждень, і не пізніше за нього.
+// entries: { [weekStart]: entry }. Звіти йдуть від першого до обраного.
+// Рік — календарний: сума тижнів року плюс накопичене «до тижня».
+// Місяць — календарний, перераховується від першого звіту: накопичується за тижнями, а з початку нового місяця
+// обнуляється. Тиждень, що перетинає межу місяців, дає в новий місяць лише дні з 1-го числа (за правилом їх
+// не можна вивести з тижневих підсумків), тому для нього місяць вносять вручну; без цього він дорівнює 0.
+// Місяць, внесений вручну, замінює накопичене значення, а наступні тижні того ж місяця додаються до нього.
 export function buildReport(weekStart, entries) {
   const end = weekEnd(weekStart);
-  const month = end.slice(0, 7);
   const year = end.slice(0, 4);
   const week = emptyPeriod();
   const monthP = emptyPeriod();
   const yearP = emptyPeriod();
+  let monthKey = null;
 
-  for (const [ws, raw] of Object.entries(entries)) {
+  for (const ws of Object.keys(entries).filter((k) => k <= weekStart).sort()) {
     const we = weekEnd(ws);
-    if (we > end) continue;
-    const entry = normalizeEntry(raw);
-    if (ws === weekStart) add(week, entry);
-    if (we.slice(0, 7) === month) add(monthP, entry, 'month');
-    if (we.slice(0, 4) === year) add(yearP, entry, 'year');
+    const entry = normalizeEntry(entries[ws]);
+
+    const monthOfEnd = we.slice(0, 7);
+    if (monthOfEnd !== monthKey) {
+      monthKey = monthOfEnd;
+      for (const l of ALL_LINES) monthP.lines[l.id] = { count: 0, sum: 0 };
+    }
+    const crossesMonth = ws.slice(0, 7) !== monthOfEnd;
+
+    for (const l of ALL_LINES) {
+      const own = entry.lines[l.id];
+      if (ws === weekStart) week.lines[l.id] = { ...own };
+
+      if (we.slice(0, 4) === year) {
+        yearP.lines[l.id].count += own.count + entry.yearBefore[l.id].count;
+        yearP.lines[l.id].sum += own.sum + entry.yearBefore[l.id].sum;
+      }
+
+      const manual = manualMonth(entry, l);
+      if (manual) monthP.lines[l.id] = manual;
+      else if (!crossesMonth) {
+        monthP.lines[l.id].count += own.count;
+        monthP.lines[l.id].sum += own.sum;
+      }
+    }
   }
 
   return {
     weekStart,
     weekEnd: end,
-    monthStart: `${month}-01`,
+    monthStart: `${end.slice(0, 7)}-01`,
     yearStart: `${year}-01-01`,
     week: withTotals(week),
     month: withTotals(monthP),

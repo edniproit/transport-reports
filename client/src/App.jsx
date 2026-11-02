@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { UNAUTHORIZED_EVENT, api } from './api.js';
 import { formatDate, lastWeekStart, shiftWeek, todayISO, weekEnd } from './dates.js';
 import EntryForm from './EntryForm.jsx';
@@ -47,8 +47,11 @@ function Main({ authRequired, onLogout }) {
   const [tab, setTab] = useState(window.location.hash === '#report' ? 'report' : 'entry');
   const [error, setError] = useState('');
 
+  const listRef = useRef(null);
+
+  // Звіти від першого (згори) до найновішого (внизу).
   const loadWeeks = async () => {
-    const list = await api.weeks();
+    const list = (await api.weeks()).slice().sort();
     setWeeks(list);
     return list;
   };
@@ -56,13 +59,18 @@ function Main({ authRequired, onLogout }) {
   useEffect(() => {
     api.schema().then(setSchema).catch((e) => setError(e.message));
     loadWeeks()
-      .then((list) => setWeekStart(list[0] ?? null))
+      .then((list) => setWeekStart(list[list.length - 1] ?? null))
       .catch((e) => setError(e.message));
   }, []);
 
-  const firstWeek = weeks?.length ? weeks[weeks.length - 1] : null;
+  // Список прокручується донизу, до найновішого звіту.
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [weeks?.length]);
+
+  const firstWeek = weeks?.[0] ?? null;
   // Новий звіт — тиждень після останнього створеного (або минулий тиждень, якщо звітів ще немає).
-  const nextWeek = weeks?.length ? shiftWeek(weeks[0], 1) : lastWeekStart();
+  const nextWeek = weeks?.length ? shiftWeek(weeks[weeks.length - 1], 1) : lastWeekStart();
   const canAdd = weeks !== null && nextWeek <= todayISO();
 
   const addWeek = async () => {
@@ -79,21 +87,24 @@ function Main({ authRequired, onLogout }) {
 
   const onDeleted = async () => {
     const list = await loadWeeks();
-    setWeekStart(list[0] ?? null);
+    setWeekStart(list[list.length - 1] ?? null);
   };
 
   return (
     <div className="shell">
       <aside className="sidebar no-print">
         <h2>Звіти</h2>
-        <ul className="week-list">
-          {weeks?.map((w) => (
+        <ul className="week-list" ref={listRef}>
+          {weeks?.map((w, i) => (
             <li key={w}>
               <button className={w === weekStart ? 'active' : ''} onClick={() => setWeekStart(w)}>
-                <span>
-                  {formatDate(w)} – {formatDate(weekEnd(w))}
+                <span className="num">{i + 1}</span>
+                <span className="label">
+                  <span>
+                    {formatDate(w)} – {formatDate(weekEnd(w))}
+                  </span>
+                  {w === firstWeek && <small>перший звіт</small>}
                 </span>
-                {w === firstWeek && <small>перший звіт</small>}
               </button>
             </li>
           ))}

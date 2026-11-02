@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api } from './api.js';
-import { formatNumber } from './dates.js';
+import { formatDate, formatNumber, weekEnd } from './dates.js';
 
 const toValue = (n) => (n ? String(n) : '');
+const cellValue = (n) => (n === null || n === undefined ? '' : String(n));
+const days = (n) => (n === 1 ? 'день' : n < 5 ? 'дні' : 'днів');
 
 export default function EntryForm({ schema, weekStart, isFirst, onDone, onDeleted }) {
   const [entry, setEntry] = useState(null);
@@ -14,18 +16,22 @@ export default function EntryForm({ schema, weekStart, isFirst, onDone, onDelete
 
   if (!entry) return <p className="muted">{status || 'Завантаження…'}</p>;
 
+  const lines = schema.sections.flatMap((s) => s.lines);
+  const end = weekEnd(weekStart);
+  const crossesMonth = weekStart.slice(0, 7) !== end.slice(0, 7);
+  const daysInNewMonth = Number(end.slice(8));
+
   const setLine = (id, field, value) => {
     const n = Math.max(0, Number(value) || 0);
     setEntry((e) => ({ ...e, lines: { ...e.lines, [id]: { ...e.lines[id], [field]: n } } }));
   };
+  const setPrice = (id, value) => setEntry((e) => ({ ...e, prices: { ...e.prices, [id]: Math.max(0, Number(value) || 0) } }));
 
-  // Порожнє поле «частини тижня» = null: у місяць іде весь тиждень.
-  const setPart = (group, id, field, value) =>
-    setEntry((e) => ({
-      ...e,
-      [group]: { ...e[group], [id]: { ...e[group][id], [field]: value === '' ? null : Math.max(0, Number(value) || 0) } },
-    }));
-  const cellValue = (n) => (n === null || n === undefined ? '' : String(n));
+  // Порожнє поле місяця = null: місяць рахується автоматично.
+  const setMonth = (id, field, value) =>
+    setEntry((e) => ({ ...e, month: { ...e.month, [id]: { ...e.month[id], [field]: value === '' ? null : Math.max(0, Number(value) || 0) } } }));
+  const setYearBefore = (id, field, value) =>
+    setEntry((e) => ({ ...e, yearBefore: { ...e.yearBefore, [id]: { ...e.yearBefore[id], [field]: Math.max(0, Number(value) || 0) } } }));
 
   const save = async () => {
     try {
@@ -56,6 +62,7 @@ export default function EntryForm({ schema, weekStart, isFirst, onDone, onDelete
             <h2>{section.title}</h2>
             <div className="rows head">
               <span>Показник</span>
+              <span>Ціна, грн</span>
               <span>Кількість</span>
               <span>Сума, грн</span>
             </div>
@@ -64,13 +71,27 @@ export default function EntryForm({ schema, weekStart, isFirst, onDone, onDelete
               return (
                 <div key={line.id} className="rows">
                   <label htmlFor={`${line.id}-count`}>{line.title}</label>
-                  <input id={`${line.id}-count`} type="number" min="0" inputMode="numeric" placeholder="0" value={toValue(v.count)} onChange={(e) => setLine(line.id, 'count', e.target.value)} />
-                  {line.price ? (
-                    <span className="auto" title="Рахується автоматично">
-                      {formatNumber(v.count * line.price)}
-                    </span>
+                  {line.fine ? (
+                    <span className="muted dash">—</span>
                   ) : (
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      inputMode="decimal"
+                      aria-label={`${line.title}: ціна`}
+                      title="Ціна за замовчуванням з поточних тарифів; можна змінити"
+                      value={cellValue(entry.prices[line.id])}
+                      onChange={(e) => setPrice(line.id, e.target.value)}
+                    />
+                  )}
+                  <input id={`${line.id}-count`} type="number" min="0" inputMode="numeric" placeholder="0" value={toValue(v.count)} onChange={(e) => setLine(line.id, 'count', e.target.value)} />
+                  {line.fine ? (
                     <input type="number" min="0" inputMode="decimal" placeholder="0" aria-label={`${line.title}: сума`} value={toValue(v.sum)} onChange={(e) => setLine(line.id, 'sum', e.target.value)} />
+                  ) : (
+                    <span className="auto" title="Кількість × ціна">
+                      {formatNumber(v.count * entry.prices[line.id])}
+                    </span>
                   )}
                 </div>
               );
@@ -79,41 +100,59 @@ export default function EntryForm({ schema, weekStart, isFirst, onDone, onDelete
         ))}
       </div>
 
-      <details className="card adjust">
-        <summary>Місяць і рік: додаткові дані</summary>
+      <details className="card adjust" open={crossesMonth}>
+        <summary>Місяць: внести вручну</summary>
+        {crossesMonth && (
+          <p className="notice">
+            Цей тиждень ({formatDate(weekStart)} – {formatDate(end)}) перетинає межу місяців: у новий місяць потрапляє лише {daysInNewMonth}{' '}
+            {days(daysInNewMonth)}. Їх не можна вивести з тижневих підсумків, тому внесіть місячні цифри нижче. Поки поля порожні, місяць у звіті дорівнює 0.
+          </p>
+        )}
         <p className="muted">
-          Місяць і рік складаються з тижнів автоматично. Заповнюйте лише якщо потрібно: «У місяці» — скільки з цього тижня припадає на місяць звіту,
-          коли тиждень перетинає межу місяців (порожньо = увесь тиждень); «Рік до тижня» — накопичене з початку року до цього тижня.
+          Звичайно місяць рахується автоматично з початку місяця. Якщо ввести значення, воно замінить розрахунок для цього рядка (внесіть накопичене з початку
+          місяця), а наступні тижні цього місяця додаватимуться до нього. Порожньо = автоматично. Якщо сума порожня, вона = кількість × ціна.
         </p>
-        <div className="rows adjust-rows head">
+        <div className="rows month-rows head">
           <span>Показник</span>
-          <span>У місяці, к-сть</span>
-          <span>У місяці, грн</span>
-          <span>Рік до тижня, к-сть</span>
-          <span>Рік до тижня, грн</span>
+          <span>Місяць, к-сть</span>
+          <span>Місяць, грн</span>
         </div>
-        {schema.sections.flatMap((s) => s.lines).map((line) => (
-          <div key={line.id} className="rows adjust-rows">
+        {lines.map((line) => {
+          const m = entry.month[line.id];
+          const autoSum = !line.fine && m.count !== null ? String(m.count * entry.prices[line.id]) : 'авто';
+          return (
+            <div key={line.id} className="rows month-rows">
+              <span>{line.title}</span>
+              <input type="number" min="0" inputMode="decimal" placeholder="авто" aria-label={`${line.title}: місяць, кількість`} value={cellValue(m.count)} onChange={(e) => setMonth(line.id, 'count', e.target.value)} />
+              <input type="number" min="0" inputMode="decimal" placeholder={autoSum} aria-label={`${line.title}: місяць, сума`} value={cellValue(m.sum)} onChange={(e) => setMonth(line.id, 'sum', e.target.value)} />
+            </div>
+          );
+        })}
+      </details>
+
+      <details className="card adjust">
+        <summary>Рік: накопичене до цього тижня</summary>
+        <p className="muted">Рік складається з тижнів автоматично. Тут вносять накопичене з початку року до цього тижня, зазвичай один раз — у першому звіті.</p>
+        <div className="rows month-rows head">
+          <span>Показник</span>
+          <span>До тижня, к-сть</span>
+          <span>До тижня, грн</span>
+        </div>
+        {lines.map((line) => (
+          <div key={line.id} className="rows month-rows">
             <span>{line.title}</span>
-            {[['monthPart', 'count'], ['monthPart', 'sum'], ['yearBefore', 'count'], ['yearBefore', 'sum']].map(([group, field]) => {
-              const label = `${line.title}: ${group === 'monthPart' ? 'у місяці' : 'рік до тижня'}, ${field === 'count' ? 'кількість' : 'сума'}`;
-              if (group === 'monthPart' && field === 'sum' && line.price) {
-                const count = entry.monthPart[line.id].count;
-                return <span key={group + field} className="auto">{count === null ? '' : formatNumber(count * line.price)}</span>;
-              }
-              return (
-                <input
-                  key={group + field}
-                  type="number"
-                  min="0"
-                  inputMode="decimal"
-                  placeholder={group === 'monthPart' ? 'весь' : '0'}
-                  aria-label={label}
-                  value={group === 'monthPart' ? cellValue(entry[group][line.id][field]) : toValue(entry[group][line.id][field])}
-                  onChange={(e) => setPart(group, line.id, field, e.target.value)}
-                />
-              );
-            })}
+            {['count', 'sum'].map((field) => (
+              <input
+                key={field}
+                type="number"
+                min="0"
+                inputMode="decimal"
+                placeholder="0"
+                aria-label={`${line.title}: рік до тижня, ${field === 'count' ? 'кількість' : 'сума'}`}
+                value={toValue(entry.yearBefore[line.id][field])}
+                onChange={(e) => setYearBefore(line.id, field, e.target.value)}
+              />
+            ))}
           </div>
         ))}
       </details>
