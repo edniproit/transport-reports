@@ -1,0 +1,31 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: #1c2430; background: #f4f6f9; }
+.app { max-width: 980px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 22px; margin: 0 0 12px; }
+h2, h3 { margin: 20px 0 8px; font-size: 17px; }
+button { font: inherit; padding: 6px 12px; border: 1px solid #b8c1cc; border-radius: 6px; background: #fff; cursor: pointer; }
+button:hover { background: #eef2f7; }
+button.primary, nav button.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+.week-picker { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.week-picker label { display: flex; gap: 6px; align-items: center; }
+.range { font-weight: 600; }
+nav { display: flex; gap: 8px; margin-bottom: 8px; }
+.saved { font-size: 14px; }
+.chip { padding: 2px 8px; font-size: 13px; margin-right: 4px; }
+section { background: #fff; border-radius: 8px; padding: 4px 16px 12px; margin-bottom: 12px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { border: 1px solid #dde3ea; padding: 6px 8px; text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+thead th { background: #eef2f7; text-align: center; }
+td input { width: 120px; padding: 5px 8px; text-align: right; font: inherit; }
+.auto { color: #5b6673; }
+tr.total td { font-weight: 700; background: #f4f6f9; }
+.actions { display: flex; gap: 8px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+.status, .hint { color: #5b6673; font-size: 14px; }
+.error { color: #b42318; }
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+  section { padding: 0; break-inside: avoid; }
+}
