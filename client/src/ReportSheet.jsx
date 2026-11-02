@@ -1,5 +1,5 @@
 import { formatDate, formatNumber as fmt } from './dates.js';
-import { Logo, Shield, TransportIcons } from './Logo.jsx';
+import { Band, Shield } from './Logo.jsx';
 
 const PERIODS = ['week', 'month', 'year'];
 const MARKS = { week: '***', month: '**', year: '*' };
@@ -59,10 +59,7 @@ export default function ReportSheet({ schema, report }) {
           Загальний звіт з {formatDate(report.weekStart)} по {formatDate(report.weekEnd)}
         </h1>
       </div>
-      <div className="sheet-band">
-        <Logo />
-        <TransportIcons />
-      </div>
+      <Band />
       <h2 className="sheet-subtitle">Статистика з оплати транспорту</h2>
 
       <div className="footnotes">
