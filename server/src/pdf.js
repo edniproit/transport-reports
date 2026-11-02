@@ -1,4 +1,7 @@
 import { existsSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import puppeteer from 'puppeteer-core';
 
 // PDF друкує встановлений Chrome/Edge: розмітка аркуша одна для перегляду й файлу.
@@ -18,8 +21,11 @@ export async function renderPdf(url) {
   const executablePath = CANDIDATES.find((p) => existsSync(p));
   if (!executablePath) throw new Error('Не знайдено Chrome або Edge для створення PDF. Вкажіть шлях у змінній BROWSER_PATH.');
 
+  // Окремий тимчасовий профіль, щоб не чіпати відкритий у користувача браузер.
+  const userDataDir = await mkdtemp(path.join(os.tmpdir(), 'report-pdf-'));
   const browser = await puppeteer.launch({
     executablePath,
+    userDataDir,
     headless: true,
     args: process.env.BROWSER_NO_SANDBOX ? ['--no-sandbox'] : [],
   });
@@ -31,5 +37,6 @@ export async function renderPdf(url) {
     return Buffer.from(await page.pdf({ preferCSSPageSize: true, printBackground: true }));
   } finally {
     await browser.close();
+    await rm(userDataDir, { recursive: true, force: true });
   }
 }

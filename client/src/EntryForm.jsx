@@ -4,7 +4,7 @@ import { formatNumber } from './dates.js';
 
 const toValue = (n) => (n ? String(n) : '');
 
-export default function EntryForm({ schema, weekStart, onSaved, onDone }) {
+export default function EntryForm({ schema, weekStart, isFirst, onDone, onDeleted }) {
   const [entry, setEntry] = useState(null);
   const [status, setStatus] = useState('');
 
@@ -32,19 +32,20 @@ export default function EntryForm({ schema, weekStart, onSaved, onDone }) {
       setStatus('Збереження…');
       await api.saveWeek(weekStart, entry);
       setStatus('Збережено');
-      onSaved();
       onDone();
     } catch (e) {
       setStatus(e.message);
     }
   };
 
-  const clear = async () => {
-    if (!window.confirm('Видалити дані за цей тиждень?')) return;
-    await api.deleteWeek(weekStart);
-    setEntry(await api.getWeek(weekStart));
-    setStatus('Дані тижня видалено');
-    onSaved();
+  const remove = async () => {
+    if (!window.confirm('Видалити звіт за цей тиждень?')) return;
+    try {
+      await api.deleteWeek(weekStart);
+      onDeleted();
+    } catch (e) {
+      setStatus(e.message);
+    }
   };
 
   return (
@@ -119,7 +120,7 @@ export default function EntryForm({ schema, weekStart, onSaved, onDone }) {
 
       <div className="actions">
         <button className="btn primary" onClick={save}>Зберегти і показати звіт</button>
-        <button className="btn" onClick={clear}>Очистити тиждень</button>
+        {!isFirst && <button className="btn" onClick={remove}>Видалити звіт</button>}
         <span className="muted">{status}</span>
       </div>
     </div>

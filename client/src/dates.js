@@ -16,12 +16,14 @@ export function weekEnd(weekStart) {
   return toISO(new Date(new Date(`${weekStart}T00:00:00Z`).getTime() + 6 * DAY));
 }
 
-// Минулий тиждень відносно сьогодні (локальна дата).
-export function lastWeekStart() {
+// Сьогодні за локальною датою, YYYY-MM-DD.
+export function todayISO() {
   const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  return shiftWeek(mondayOf(today), -1);
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
+
+// Минулий тиждень відносно сьогодні.
+export const lastWeekStart = () => shiftWeek(mondayOf(todayISO()), -1);
 
 export const formatDate = (iso) => iso.split('-').reverse().join('.');
 

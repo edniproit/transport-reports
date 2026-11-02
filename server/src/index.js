@@ -16,6 +16,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+class HttpError extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// Express 4 не ловить відхилені проміси: передаємо помилки в обробник вручну.
+const handle = (fn) => (req, res, next) => fn(req, res).catch(next);
+
 const checkWeek = (req, res, next) => {
   if (!isMonday(req.params.weekStart)) {
     return res.status(400).json({ error: 'weekStart має бути понеділком у форматі YYYY-MM-DD' });
@@ -35,20 +45,26 @@ app.get('/api/weeks/:weekStart', checkWeek, async (req, res) => {
   res.json(normalizeEntry(all[req.params.weekStart]));
 });
 
-app.put('/api/weeks/:weekStart', checkWeek, async (req, res) => {
+// Перший (найраніший) збережений тиждень — точка відліку: раніше за нього звітів немає і не буде.
+app.put('/api/weeks/:weekStart', checkWeek, handle(async (req, res) => {
+  const { weekStart } = req.params;
+  if (weekStart > new Date().toISOString().slice(0, 10)) throw new HttpError('Цей тиждень ще не розпочався');
   const entry = normalizeEntry(req.body);
   await update((all) => {
-    all[req.params.weekStart] = entry;
+    const first = Object.keys(all).sort()[0];
+    if (first && weekStart < first) throw new HttpError(`Не можна створювати звіти раніше за перший тиждень (${formatDate(first)})`);
+    all[weekStart] = entry;
   });
   res.json(entry);
-});
+}));
 
-app.delete('/api/weeks/:weekStart', checkWeek, async (req, res) => {
+app.delete('/api/weeks/:weekStart', checkWeek, handle(async (req, res) => {
   await update((all) => {
+    if (req.params.weekStart === Object.keys(all).sort()[0]) throw new HttpError('Перший звіт видалити не можна');
     delete all[req.params.weekStart];
   });
   res.status(204).end();
-});
+}));
 
 app.get('/api/report/:weekStart', checkWeek, async (req, res) => {
   res.json(buildReport(req.params.weekStart, await readAll()));
@@ -80,6 +96,7 @@ if (existsSync(dist)) {
 }
 
 app.use((err, _req, res, _next) => {
+  if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
   console.error(err);
   res.status(500).json({ error: 'Внутрішня помилка сервера' });
 });
