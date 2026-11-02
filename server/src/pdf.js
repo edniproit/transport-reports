@@ -17,7 +17,8 @@ const CANDIDATES = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
 ].filter(Boolean);
 
-export async function renderPdf(url) {
+// credentials — { username, password } для сторінки, захищеної Basic-авторизацією.
+export async function renderPdf(url, credentials) {
   const executablePath = CANDIDATES.find((p) => existsSync(p));
   if (!executablePath) throw new Error('Не знайдено Chrome або Edge для створення PDF. Вкажіть шлях у змінній BROWSER_PATH.');
 
@@ -27,10 +28,12 @@ export async function renderPdf(url) {
     executablePath,
     userDataDir,
     headless: true,
-    args: process.env.BROWSER_NO_SANDBOX ? ['--no-sandbox'] : [],
+    // У контейнері Chromium працює від root і має мало спільної пам'яті.
+    args: process.env.BROWSER_NO_SANDBOX ? ['--no-sandbox', '--disable-dev-shm-usage'] : [],
   });
   try {
     const page = await browser.newPage();
+    if (credentials) await page.authenticate(credentials);
     await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
     await page.waitForSelector('.sheet', { timeout: 15000 });
     await page.evaluate(() => document.fonts.ready);

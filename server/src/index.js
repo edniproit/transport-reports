@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { SECTIONS } from './schema.js';
+import { basicAuth, credentials } from './auth.js';
 import { formatDate, isMonday, weekEnd } from './dates.js';
 import { renderPdf } from './pdf.js';
 import { buildReport, normalizeEntry } from './report.js';
@@ -13,6 +14,8 @@ const port = process.env.PORT || 3001;
 const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'client', 'dist');
 
 const app = express();
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.use(basicAuth);
 app.use(cors());
 app.use(express.json());
 
@@ -74,9 +77,11 @@ app.get('/api/report/:weekStart', checkWeek, async (req, res) => {
 app.get('/api/report/:weekStart/pdf', checkWeek, async (req, res) => {
   const { weekStart } = req.params;
   try {
-    // Друкуємо клієнт з тієї ж адреси, з якої прийшов запит (Vite у розробці, сам сервер у продакшені).
-    const clientUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('x-forwarded-host') || req.get('host')}`;
-    const pdf = await renderPdf(`${clientUrl}/#print=${weekStart}`);
+    // У продакшені клієнта віддає сам сервер; у розробці друкуємо з адреси, з якої прийшов запит (Vite).
+    const clientUrl =
+      process.env.CLIENT_URL ||
+      (process.env.NODE_ENV === 'production' ? `http://localhost:${port}` : `${req.protocol}://${req.get('x-forwarded-host') || req.get('host')}`);
+    const pdf = await renderPdf(`${clientUrl}/#print=${weekStart}`, credentials());
     const name = `звіт ${formatDate(weekStart)}-${formatDate(weekEnd(weekStart))}.pdf`;
     res.set({
       'Content-Type': 'application/pdf',
