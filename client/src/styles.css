@@ -1,4 +1,4 @@
-/* Фірмовий шрифт міста. Файли лежать у client/public/fonts і не комітяться (ліцензія); без них працює Onest. */
+/* Фірмовий шрифт міста. Файли лежать у client/public/fonts; Onest — запасний шрифт. */
 @font-face { font-family: 'DniproCity'; font-weight: 400; src: url('/fonts/DniproCity-Regular.otf') format('opentype'); font-display: swap; }
 @font-face { font-family: 'DniproCity'; font-weight: 500; src: url('/fonts/DniproCity-Medium.otf') format('opentype'); font-display: swap; }
 @font-face { font-family: 'DniproCity'; font-weight: 700; src: url('/fonts/DniproCity-Bold.otf') format('opentype'); font-display: swap; }

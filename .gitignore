@@ -1,6 +1,5 @@
 node_modules/
 dist/
 server/data/
-client/public/fonts/
 .env
 *.log
