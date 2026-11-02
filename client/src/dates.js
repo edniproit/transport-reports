@@ -25,4 +25,5 @@ export function lastWeekStart() {
 
 export const formatDate = (iso) => iso.split('-').reverse().join('.');
 
-export const formatNumber = (n) => new Intl.NumberFormat('uk-UA').format(n);
+// У шрифті DniproCity немає нерозривного пробілу, яким Intl розділяє розряди, — міняємо на звичайний.
+export const formatNumber = (n) => new Intl.NumberFormat('uk-UA').format(n).replace(/ /g, ' ');
