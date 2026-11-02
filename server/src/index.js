@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { SECTIONS } from './schema.js';
-import { basicAuth, credentials } from './auth.js';
+import { COOKIE_NAME, createSessionToken, credentials, isAuthenticated, login, logout, requireAuth } from './auth.js';
 import { formatDate, isMonday, weekEnd } from './dates.js';
 import { renderPdf } from './pdf.js';
 import { buildReport, normalizeEntry } from './report.js';
@@ -14,10 +14,16 @@ const port = process.env.PORT || 3001;
 const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'client', 'dist');
 
 const app = express();
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
-app.use(basicAuth);
+app.set('trust proxy', 1); // за проксі хостингу: правильні req.secure та req.ip
 app.use(cors());
 app.use(express.json());
+
+// Відкриті маршрути: перевірка стану й вхід. Усе інше під /api — лише для авторизованих.
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get('/api/session', (req, res) => res.json({ authRequired: Boolean(credentials()), authenticated: isAuthenticated(req) }));
+app.post('/api/login', login);
+app.post('/api/logout', logout);
+app.use('/api', requireAuth);
 
 class HttpError extends Error {
   constructor(message, status = 400) {
@@ -81,7 +87,9 @@ app.get('/api/report/:weekStart/pdf', checkWeek, async (req, res) => {
     const clientUrl =
       process.env.CLIENT_URL ||
       (process.env.NODE_ENV === 'production' ? `http://localhost:${port}` : `${req.protocol}://${req.get('x-forwarded-host') || req.get('host')}`);
-    const pdf = await renderPdf(`${clientUrl}/#print=${weekStart}`, credentials());
+    // Браузер для PDF входить із власною короткою сесією, пароль йому не передається.
+    const session = credentials() ? { name: COOKIE_NAME, value: createSessionToken() } : null;
+    const pdf = await renderPdf(`${clientUrl}/#print=${weekStart}`, session);
     const name = `звіт ${formatDate(weekStart)}-${formatDate(weekEnd(weekStart))}.pdf`;
     res.set({
       'Content-Type': 'application/pdf',

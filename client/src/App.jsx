@@ -1,17 +1,46 @@
 import { useEffect, useState } from 'react';
-import { api } from './api.js';
+import { UNAUTHORIZED_EVENT, api } from './api.js';
 import { formatDate, lastWeekStart, shiftWeek, todayISO, weekEnd } from './dates.js';
 import EntryForm from './EntryForm.jsx';
+import Login from './Login.jsx';
 import PrintView from './PrintView.jsx';
 import Report from './Report.jsx';
 import { Logo } from './Logo.jsx';
 
 export default function App() {
   const printWeek = window.location.hash.match(/^#print=(\d{4}-\d{2}-\d{2})$/)?.[1];
-  return printWeek ? <PrintView weekStart={printWeek} /> : <Main />;
+  return printWeek ? <PrintView weekStart={printWeek} /> : <Gate />;
 }
 
-function Main() {
+// Показує сторінку входу, поки сервер не підтвердить сесію.
+function Gate() {
+  const [state, setState] = useState('loading'); // loading | login | ready
+  const [authRequired, setAuthRequired] = useState(false);
+
+  useEffect(() => {
+    api
+      .session()
+      .then((s) => {
+        setAuthRequired(s.authRequired);
+        setState(s.authenticated ? 'ready' : 'login');
+      })
+      .catch(() => setState('login'));
+    const expire = () => setState('login');
+    window.addEventListener(UNAUTHORIZED_EVENT, expire);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, expire);
+  }, []);
+
+  const logout = async () => {
+    await api.logout().catch(() => {});
+    setState('login');
+  };
+
+  if (state === 'loading') return null;
+  if (state === 'login') return <Login onSuccess={() => setState('ready')} />;
+  return <Main authRequired={authRequired} onLogout={logout} />;
+}
+
+function Main({ authRequired, onLogout }) {
   const [schema, setSchema] = useState(null);
   const [weeks, setWeeks] = useState(null); // створені звіти, найновіші зверху
   const [weekStart, setWeekStart] = useState(null);
@@ -84,7 +113,14 @@ function Main() {
       <div className="page">
         <div className="topbar no-print">
           <span className="eyebrow">Щотижнева статистика · оплата транспорту</span>
-          <Logo />
+          <div className="topbar-right">
+            {authRequired && (
+              <button className="link-btn" onClick={onLogout}>
+                Вийти
+              </button>
+            )}
+            <Logo />
+          </div>
         </div>
 
         <section className="hero no-print">

@@ -17,8 +17,8 @@ const CANDIDATES = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
 ].filter(Boolean);
 
-// credentials — { username, password } для сторінки, захищеної Basic-авторизацією.
-export async function renderPdf(url, credentials) {
+// session — { name, value } cookie, з яким сторінка звертається до захищеного API.
+export async function renderPdf(url, session) {
   const executablePath = CANDIDATES.find((p) => existsSync(p));
   if (!executablePath) throw new Error('Не знайдено Chrome або Edge для створення PDF. Вкажіть шлях у змінній BROWSER_PATH.');
 
@@ -33,7 +33,7 @@ export async function renderPdf(url, credentials) {
   });
   try {
     const page = await browser.newPage();
-    if (credentials) await page.authenticate(credentials);
+    if (session) await page.setCookie({ ...session, url: new URL(url).origin });
     await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
     await page.waitForSelector('.sheet', { timeout: 15000 });
     await page.evaluate(() => document.fonts.ready);

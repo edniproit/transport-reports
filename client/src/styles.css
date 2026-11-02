@@ -56,6 +56,27 @@ body {
 .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
 .eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--navy); font-weight: 500; }
 .logo { display: block; height: 30px; }
+.topbar-right { display: flex; align-items: center; gap: 20px; }
+.link-btn { font: inherit; font-weight: 700; color: var(--blue); background: none; border: 0; cursor: pointer; padding: 6px 0; }
+.link-btn:hover { text-decoration: underline; }
+
+/* Сторінка входу */
+.login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.login-card { width: 100%; max-width: 460px; background: #fff; border-radius: 28px; overflow: hidden; box-shadow: 0 24px 60px rgba(44, 85, 167, 0.18); }
+.login-band { display: block; width: 100%; }
+.login-body { padding: 28px 32px 34px; display: grid; gap: 16px; }
+.login-body h1 { margin: 0; font-size: 40px; line-height: 1.05; text-transform: uppercase; color: var(--navy); }
+.login-body h1 span { color: var(--blue-bright); }
+.login-body p { margin: 0; }
+.field { display: grid; gap: 6px; font-size: 14px; font-weight: 500; color: var(--navy); }
+.field input { width: 100%; padding: 13px 16px; font: inherit; font-size: 16px; border: 1.5px solid var(--line); border-radius: 14px; background: #f9fbff; color: var(--navy); }
+.field input:focus { outline: none; border-color: var(--blue-bright); background: #fff; box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.15); }
+.password-row { position: relative; }
+.password-row input { padding-right: 96px; }
+.password-row .toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font: inherit; font-size: 13px; font-weight: 700; color: var(--blue); background: none; border: 0; cursor: pointer; padding: 6px 10px; }
+.login-error { padding: 10px 14px; border-radius: 12px; background: #fdecea; color: #b42318; font-size: 14px; }
+.btn.wide { width: 100%; padding: 14px 22px; font-size: 16px; }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
 
 .hero h1 { margin: 0 0 10px; font-size: clamp(32px, 6vw, 56px); line-height: 1.02; font-weight: 800; color: var(--navy); text-transform: uppercase; letter-spacing: -0.01em; }
 .hero h1 span { color: var(--blue-bright); }
