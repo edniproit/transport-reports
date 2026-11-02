@@ -2,36 +2,46 @@ import { ALL_LINES, SECTIONS } from './schema.js';
 import { weekEnd } from './dates.js';
 
 const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0);
-const signed = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+const optional = (v) => (v === null || v === undefined || v === '' ? null : num(v));
 
 // Нормалізує введені дані тижня: рахує суму для рядків з фіксованою ціною.
-// adjust — коригування накопичених місяця й року (можуть бути від'ємними): початковий залишок
-// року, частина тижня, що припадає на попередній місяць, тощо.
+// monthPart — частина тижня, що потрапляє в місяць звіту, якщо тиждень перетинає межу місяців
+// (null = увесь тиждень). yearBefore — накопичене з початку року до цього тижня.
 export function normalizeEntry(raw = {}) {
   const lines = {};
+  const monthPart = {};
+  const yearBefore = {};
   for (const line of ALL_LINES) {
     const count = num(raw.lines?.[line.id]?.count);
-    const sum = line.price ? count * line.price : num(raw.lines?.[line.id]?.sum);
-    lines[line.id] = { count, sum };
+    lines[line.id] = { count, sum: line.price ? count * line.price : num(raw.lines?.[line.id]?.sum) };
+
+    const partCount = optional(raw.monthPart?.[line.id]?.count);
+    const partSum = line.price ? (partCount === null ? null : partCount * line.price) : optional(raw.monthPart?.[line.id]?.sum);
+    monthPart[line.id] = { count: partCount, sum: partSum };
+
+    yearBefore[line.id] = { count: num(raw.yearBefore?.[line.id]?.count), sum: num(raw.yearBefore?.[line.id]?.sum) };
   }
-  const adjust = {};
-  for (const period of ['month', 'year']) {
-    adjust[period] = Object.fromEntries(
-      ALL_LINES.map((l) => [l.id, { count: signed(raw.adjust?.[period]?.[l.id]?.count), sum: signed(raw.adjust?.[period]?.[l.id]?.sum) }]),
-    );
-  }
-  return { lines, adjust };
+  return { lines, monthPart, yearBefore };
 }
 
 function emptyPeriod() {
   return { lines: Object.fromEntries(ALL_LINES.map((l) => [l.id, { count: 0, sum: 0 }])) };
 }
 
-function add(acc, entry, adjustPeriod) {
+// period: 'month' бере monthPart замість повного тижня, 'year' додає yearBefore.
+function add(acc, entry, period) {
   for (const l of ALL_LINES) {
-    const adj = adjustPeriod ? entry.adjust[adjustPeriod][l.id] : { count: 0, sum: 0 };
-    acc.lines[l.id].count += entry.lines[l.id].count + adj.count;
-    acc.lines[l.id].sum += entry.lines[l.id].sum + adj.sum;
+    const own = entry.lines[l.id];
+    let { count, sum } = own;
+    if (period === 'month') {
+      count = entry.monthPart[l.id].count ?? own.count;
+      sum = entry.monthPart[l.id].sum ?? own.sum;
+    } else if (period === 'year') {
+      count += entry.yearBefore[l.id].count;
+      sum += entry.yearBefore[l.id].sum;
+    }
+    acc.lines[l.id].count += count;
+    acc.lines[l.id].sum += sum;
   }
 }
 

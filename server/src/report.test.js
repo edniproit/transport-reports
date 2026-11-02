@@ -35,14 +35,23 @@ test('попередній рік не потрапляє в річну суму
   assert.equal(r.year.lines.bus_25.count, 1);
 });
 
-test('коригування змінюють лише місяць і рік, у тому числі в мінус', () => {
+test('частина тижня в місяці та накопичене за рік не змінюють сам тиждень', () => {
   const e = entry(10, 100);
-  e.adjust = { month: { bus_25: { count: -4, sum: -100 } }, year: { bus_25: { count: 1000, sum: 25000 } } };
-  const r = buildReport('2026-10-19', { '2026-10-19': e });
+  e.monthPart = { bus_25: { count: 6 }, tram_single: { count: 0, sum: 0 } };
+  e.yearBefore = { bus_25: { count: 1000, sum: 25000 } };
+  const r = buildReport('2026-10-26', { '2026-10-26': e });
   assert.equal(r.week.lines.bus_25.count, 10);
   assert.equal(r.month.lines.bus_25.count, 6);
-  assert.equal(r.month.lines.bus_25.sum, 250 - 100);
+  assert.equal(r.month.lines.bus_25.sum, 150);
+  assert.equal(r.month.lines.tram_single.sum, 0);
   assert.equal(r.year.lines.bus_25.count, 1010);
+  assert.equal(r.year.lines.bus_25.sum, 25250);
+});
+
+test('без частини тижня в місяць іде весь тиждень', () => {
+  const r = buildReport('2026-10-19', { '2026-10-19': entry(3, 30) });
+  assert.equal(r.month.lines.bus_25.count, 3);
+  assert.equal(r.month.lines.tram_single.sum, 30);
 });
 
 test('штрафи: окремо в кількостях, у сумах входять до розділу, у платежах враховані', () => {

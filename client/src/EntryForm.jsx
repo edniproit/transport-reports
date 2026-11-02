@@ -19,11 +19,13 @@ export default function EntryForm({ schema, weekStart, onSaved, onDone }) {
     setEntry((e) => ({ ...e, lines: { ...e.lines, [id]: { ...e.lines[id], [field]: n } } }));
   };
 
-  const setAdjust = (period, id, field, value) =>
+  // Порожнє поле «частини тижня» = null: у місяць іде весь тиждень.
+  const setPart = (group, id, field, value) =>
     setEntry((e) => ({
       ...e,
-      adjust: { ...e.adjust, [period]: { ...e.adjust[period], [id]: { ...e.adjust[period][id], [field]: Number(value) || 0 } } },
+      [group]: { ...e[group], [id]: { ...e[group][id], [field]: value === '' ? null : Math.max(0, Number(value) || 0) } },
     }));
+  const cellValue = (n) => (n === null || n === undefined ? '' : String(n));
 
   const save = async () => {
     try {
@@ -77,32 +79,40 @@ export default function EntryForm({ schema, weekStart, onSaved, onDone }) {
       </div>
 
       <details className="card adjust">
-        <summary>Коригування місяця і року</summary>
+        <summary>Місяць і рік: додаткові дані</summary>
         <p className="muted">
-          Місяць і рік додаються з тижнів автоматично. Тут вносять те, чого в тижнях немає: накопичене з початку року до першого тижня або частину
-          тижня, що припадає на попередній місяць (тоді значення від'ємне).
+          Місяць і рік складаються з тижнів автоматично. Заповнюйте лише якщо потрібно: «У місяці» — скільки з цього тижня припадає на місяць звіту,
+          коли тиждень перетинає межу місяців (порожньо = увесь тиждень); «Рік до тижня» — накопичене з початку року до цього тижня.
         </p>
         <div className="rows adjust-rows head">
           <span>Показник</span>
-          <span>Місяць, к-сть</span>
-          <span>Місяць, грн</span>
-          <span>Рік, к-сть</span>
-          <span>Рік, грн</span>
+          <span>У місяці, к-сть</span>
+          <span>У місяці, грн</span>
+          <span>Рік до тижня, к-сть</span>
+          <span>Рік до тижня, грн</span>
         </div>
         {schema.sections.flatMap((s) => s.lines).map((line) => (
           <div key={line.id} className="rows adjust-rows">
             <span>{line.title}</span>
-            {[['month', 'count'], ['month', 'sum'], ['year', 'count'], ['year', 'sum']].map(([period, field]) => (
-              <input
-                key={period + field}
-                type="number"
-                inputMode="decimal"
-                placeholder="0"
-                aria-label={`${line.title}: ${period === 'month' ? 'місяць' : 'рік'}, ${field === 'count' ? 'кількість' : 'сума'}`}
-                value={toValue(entry.adjust[period][line.id][field])}
-                onChange={(e) => setAdjust(period, line.id, field, e.target.value)}
-              />
-            ))}
+            {[['monthPart', 'count'], ['monthPart', 'sum'], ['yearBefore', 'count'], ['yearBefore', 'sum']].map(([group, field]) => {
+              const label = `${line.title}: ${group === 'monthPart' ? 'у місяці' : 'рік до тижня'}, ${field === 'count' ? 'кількість' : 'сума'}`;
+              if (group === 'monthPart' && field === 'sum' && line.price) {
+                const count = entry.monthPart[line.id].count;
+                return <span key={group + field} className="auto">{count === null ? '' : formatNumber(count * line.price)}</span>;
+              }
+              return (
+                <input
+                  key={group + field}
+                  type="number"
+                  min="0"
+                  inputMode="decimal"
+                  placeholder={group === 'monthPart' ? 'весь' : '0'}
+                  aria-label={label}
+                  value={group === 'monthPart' ? cellValue(entry[group][line.id][field]) : toValue(entry[group][line.id][field])}
+                  onChange={(e) => setPart(group, line.id, field, e.target.value)}
+                />
+              );
+            })}
           </div>
         ))}
       </details>
