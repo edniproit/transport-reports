@@ -17,6 +17,8 @@ export function isMonday(s) {
   return d !== null && d.getUTCDay() === 1;
 }
 
+export const formatDate = (iso) => iso.split('-').reverse().join('.');
+
 export function weekEnd(weekStart) {
   return toISO(new Date(parseISO(weekStart).getTime() + 6 * DAY));
 }

@@ -2,10 +2,16 @@ import { useEffect, useState } from 'react';
 import { api } from './api.js';
 import { formatDate, lastWeekStart, mondayOf, shiftWeek, weekEnd } from './dates.js';
 import EntryForm from './EntryForm.jsx';
+import PrintView from './PrintView.jsx';
 import Report from './Report.jsx';
 import { Logo } from './Logo.jsx';
 
 export default function App() {
+  const printWeek = window.location.hash.match(/^#print=(\d{4}-\d{2}-\d{2})$/)?.[1];
+  return printWeek ? <PrintView weekStart={printWeek} /> : <Main />;
+}
+
+function Main() {
   const [schema, setSchema] = useState(null);
   const [weekStart, setWeekStart] = useState(lastWeekStart());
   const [tab, setTab] = useState(window.location.hash === '#report' ? 'report' : 'entry');
@@ -89,7 +95,7 @@ export default function App() {
       ) : tab === 'entry' ? (
         <EntryForm key={weekStart} schema={schema} weekStart={weekStart} onSaved={refreshWeeks} onDone={() => setTab('report')} />
       ) : (
-        <Report key={weekStart} schema={schema} weekStart={weekStart} />
+        <Report key={weekStart} weekStart={weekStart} />
       )}
     </div>
   );
