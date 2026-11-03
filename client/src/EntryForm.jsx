@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from './api.js';
 import { formatDate, formatNumber, weekEnd } from './dates.js';
+import { useDialogs } from './Dialogs.jsx';
 
 const toValue = (n) => (n ? String(n) : '');
 const cellValue = (n) => (n === null || n === undefined ? '' : String(n));
@@ -9,6 +10,7 @@ const days = (n) => (n === 1 ? 'день' : n < 5 ? 'дні' : 'днів');
 export default function EntryForm({ schema, weekStart, isFirst, onDone, onDeleted }) {
   const [entry, setEntry] = useState(null);
   const [status, setStatus] = useState('');
+  const { confirm } = useDialogs();
 
   useEffect(() => {
     api.getWeek(weekStart).then(setEntry).catch((e) => setStatus(e.message));
@@ -45,7 +47,14 @@ export default function EntryForm({ schema, weekStart, isFirst, onDone, onDelete
   };
 
   const remove = async () => {
-    if (!window.confirm('Видалити звіт за цей тиждень?')) return;
+    const confirmed = await confirm({
+      title: 'Видалити звіт?',
+      message: `Звіт за тиждень ${formatDate(weekStart)} – ${formatDate(end)} буде видалено разом з усіма введеними даними. Цю дію не можна скасувати.`,
+      confirmLabel: 'Видалити',
+      cancelLabel: 'Залишити',
+      danger: true,
+    });
+    if (!confirmed) return;
     try {
       await api.deleteWeek(weekStart);
       onDeleted();

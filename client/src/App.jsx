@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { UNAUTHORIZED_EVENT, api } from './api.js';
 import { formatDate, lastWeekStart, shiftWeek, todayISO, weekEnd } from './dates.js';
+import { useDialogs } from './Dialogs.jsx';
 import EntryForm from './EntryForm.jsx';
 import Login from './Login.jsx';
 import PrintView from './PrintView.jsx';
@@ -46,6 +47,7 @@ function Main({ authRequired, onLogout }) {
   const [weekStart, setWeekStart] = useState(null);
   const [tab, setTab] = useState(window.location.hash === '#report' ? 'report' : 'entry');
   const [error, setError] = useState('');
+  const { alert } = useDialogs();
 
   const listRef = useRef(null);
 
@@ -74,6 +76,14 @@ function Main({ authRequired, onLogout }) {
   const canAdd = weeks !== null && nextWeek <= todayISO();
 
   const addWeek = async () => {
+    if (weeks === null) return;
+    if (!canAdd) {
+      await alert({
+        title: 'Наступний тиждень ще не розпочався',
+        message: `Звіт за ${formatDate(nextWeek)} – ${formatDate(weekEnd(nextWeek))} можна створити лише з початку цього тижня, тобто з понеділка ${formatDate(nextWeek)}.`,
+      });
+      return;
+    }
     try {
       setError('');
       await api.saveWeek(nextWeek, {});
@@ -110,15 +120,22 @@ function Main({ authRequired, onLogout }) {
           ))}
           {weeks?.length === 0 && <li className="muted empty">Звітів ще немає</li>}
         </ul>
-        <button
-          className="add-btn"
-          onClick={addWeek}
-          disabled={!canAdd}
-          aria-label="Додати звіт за новий тиждень"
-          title={canAdd ? `Додати звіт: ${formatDate(nextWeek)} – ${formatDate(weekEnd(nextWeek))}` : 'Наступний тиждень ще не розпочався'}
-        >
-          +
-        </button>
+        <div className="add-area">
+          <button
+            className={`add-btn ${canAdd ? '' : 'locked'}`}
+            onClick={addWeek}
+            aria-disabled={!canAdd}
+            aria-label="Додати звіт за новий тиждень"
+            title={canAdd ? `Додати звіт: ${formatDate(nextWeek)} – ${formatDate(weekEnd(nextWeek))}` : `Звіт за наступний тиждень можна створити з ${formatDate(nextWeek)}`}
+          >
+            +
+          </button>
+          {weeks !== null && (
+            <p className="add-hint">
+              {canAdd ? `Новий звіт: ${formatDate(nextWeek)} – ${formatDate(weekEnd(nextWeek))}` : `Наступний звіт можна створити з ${formatDate(nextWeek)}`}
+            </p>
+          )}
+        </div>
       </aside>
 
       <div className="page">
